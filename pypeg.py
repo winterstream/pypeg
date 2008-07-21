@@ -61,11 +61,13 @@ class ParseState(object):
         cls.parser_id += 1
         return cls.parser_id
 
-def make_result(r, matched, ast):
-    return { 'remaining': r, 
-             'matched':   matched, 
-             'ast':       ast };
-
+class Result(object):
+    __slots__ = ['remaining', 'matched', 'ast']
+    
+    def __init__(self, remaining, matched, ast):
+        self.remaining = remaining
+        self.matched = matched
+        self.ast = ast
 
 def cacheable(f):
     def memoized_f(*args):
@@ -83,7 +85,7 @@ def cacheable(f):
 def token(s):
     def parser(state):
         if len(state) >= len(s) and state.substring(0, len(s)) == s:
-            return make_result(state.fromP(len(s)), s, s)
+            return Result(state.fromP(len(s)), s, s)
         else:
             return None
     return parser
@@ -92,7 +94,7 @@ def token(s):
 def ch(c):
     def parser(state):
         if len(state) >= 1 and state.at(0) == c:
-            return make_result(state.fromP(1), c, c)
+            return Result(state.fromP(1), c, c)
         else:
             return None
     return parser
@@ -105,7 +107,7 @@ def range(lower, upper):
         else:
             ch = state.at(0)
             if lower <= ch <= upper:
-                return make_result(state.fromP(1), ch, ch)
+                return Result(state.fromP(1), ch, ch)
             else:
                 return None
     return parser
@@ -115,7 +117,7 @@ def action(p, f):
     def parser(state):
         x = p(state)
         if x:
-            x['ast'] = f(x['ast'])
+            x.ast = f(x.ast)
             return x
         else:
             return None
@@ -135,7 +137,7 @@ def negate(p):
     def parser(state):
         if len(state) > 1:
             if p(state):
-                return make_result(state.fromP(1), state.at(0), state.at(0))
+                return Result(state.fromP(1), state.at(0), state.at(0))
             else:
                 return None
         else:
@@ -144,7 +146,7 @@ def negate(p):
 
 def end_p(state):
     if len(state) == 0:
-        return make_result(state, None, None)
+        return Result(state, None, None)
     else:
         return None
 
@@ -159,18 +161,18 @@ def sequence(*parsers):
 
         for p in parsers:
             result = p(state)
-            if result and result['ast']:
-                ast.append(result['ast'])
+            if result and result.ast:
+                ast.append(result.ast)
                 matched.append(result.matched)
             else:
                 return None
-        return make_result(state, u"".join(matched), ast)
+        return Result(state, u"".join(matched), ast)
     return parser
 
 WHITESPACE_P = repeat0(choice(*(expect(ch(c)) for c in "\t\n\r ")))
 def whitespace(p):
     def parser(state):
-        return p(WHITESPACE_P(state)['remaining'])
+        return p(WHITESPACE_P(state).remaining)
     return parser
 
 @cacheable
@@ -227,14 +229,14 @@ def repeat_loop(p, state, result):
     matched = []
 
     while result:
-        if result['ast'] != None:
-            ast.append(result['ast'])
-            matched.append(result['matched'])
-        if result['remaining'].index == state.index:
+        if result.ast != None:
+            ast.append(result.ast)
+            matched.append(result.matched)
+        if result.remaining.index == state.index:
             break
-        state  = result['remaining']
+        state  = result.remaining
         result = p(state)
-    return make_result(state, u"".join(matched), ast)
+    return Result(state, u"".join(matched), ast)
 
 @cacheable
 def repeat0(p):
@@ -255,7 +257,7 @@ def repeat1(p):
 @cacheable
 def optional(p):
     def parser(state):
-        return p(state) or make_result(state, "", None)
+        return p(state) or Result(state, "", None)
     return parser
 
 def expect(p):
@@ -276,21 +278,21 @@ def wlist(*parsers):
     return _list(*(whitespace(p) for p in parsers))
 
 def epsilon_p(state):
-    return make_result(state, u"", None)
+    return Result(state, u"", None)
 
 @cacheable
 def semantic(f):
     def parser(state):
-        return make_result(state, "", None) if f() else None
+        return Result(state, "", None) if f() else None
     return parser
 
 @cacheable
 def and_(p):
     def parser(state):
-        return make_result(state, u"", None) if p(state) else None
+        return Result(state, u"", None) if p(state) else None
     return parser
 
 @cacheable
 def not_(p):
     def parser(state):
-        return None if p(state) else make_result(state, u"", None)
+        return None if p(state) else Result(state, u"", None)
