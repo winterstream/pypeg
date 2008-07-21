@@ -156,17 +156,12 @@ def sequence(*parsers):
 
         for p in parsers:
             result = p(state)
-            if result:
-                if result['ast'] != None:
-                    ast.append(result['ast'])
-                    matched.append(result.matched)
+            if result and result['ast']:
+                ast.append(result['ast'])
+                matched.append(result.matched)
             else:
-                break
-
-        if len(ast) == len(parsers):
-            return make_result(state, u"".join(matched), ast)
-        else:
-            return False
+                return False
+        return make_result(state, u"".join(matched), ast)
     return parser
 
 WHITESPACE_P = repeat0(choice(*(expect(ch(c)) for c in "\t\n\r ")))
