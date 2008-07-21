@@ -32,7 +32,7 @@ class ParseState(object):
         self.input = input
         self.index = index or 0
         self.length = len(input) - self.index
-        self.cache = cache if cache else defaultdict(lambda: defaultdict(lambda: False))
+        self.cache = cache if cache else defaultdict(lambda: defaultdict(lambda: None))
 
     def fromP(self, index):
         return ParseState(self.input, self.index + index, self.cache)
@@ -82,7 +82,7 @@ def token(s):
         if state.length >= len(s) and state.substring(0, len(s)) == s:
             return make_result(state.fromP(len(s)), s, s)
         else:
-            return False
+            return None
     return parser
 
 @cacheable
@@ -91,20 +91,20 @@ def ch(c):
         if state.length >= 1 and state.at(0) == c:
             return make_result(state.fromP(1), c, c)
         else:
-            return False
+            return None
     return parser
 
 @cacheable
 def range(lower, upper):
     def parser(state):
         if state.length < 1:
-            return False
+            return None
         else:
             ch = state.at(0)
             if lower <= ch <= upper:
                 return make_result(state.fromP(1), ch, ch)
             else:
-                return False
+                return None
     return parser
 
 @cacheable
@@ -115,7 +115,7 @@ def action(p, f):
             x['ast'] = f(x['ast'])
             return x
         else:
-            return False
+            return None
     return parser
 
 def join_action(p, sep):
@@ -134,19 +134,19 @@ def negate(p):
             if p(state):
                 return make_result(state.fromP(1), state.at(0), state.at(0))
             else:
-                return False
+                return None
         else:
-            return False
+            return None
     return parser
 
 def end_p(state):
     if len(state) == 0:
         return make_result(state, None, None)
     else:
-        return False
+        return None
 
 def nothing_p(state):
-    return False
+    return None
 
 @cacheable
 def sequence(*parsers):
@@ -160,7 +160,7 @@ def sequence(*parsers):
                 ast.append(result['ast'])
                 matched.append(result.matched)
             else:
-                return False
+                return None
         return make_result(state, u"".join(matched), ast)
     return parser
 
@@ -180,7 +180,7 @@ def choice(*parsers):
         for result in (p(state) for p in parsers):
             if result:
                 return result
-        return False
+        return None
     return parser
 
 @cacheable
@@ -193,7 +193,7 @@ def butnot(p1, p2):
             if len(ar.matched) > len(br.matched):
                 return ar
             else:
-                return False
+                return None
     return parser
 
 @cacheable
@@ -214,7 +214,7 @@ def xor(p1, p2):
     def parser(state):
         ar, br = p1(state), p2(state)
         if ar and br:
-            return False
+            return None
         else:
             return ar or br
     return xor
@@ -244,7 +244,7 @@ def repeat1(p):
     def parser(state):
         result = p(state)
         if not result:
-            return False
+            return None
         else:
             return repeat_loop(p, state, result)
     return parser
@@ -252,7 +252,7 @@ def repeat1(p):
 @cacheable
 def optional(p):
     def parser(state):
-        return p(state) or make_result(state, "", False)
+        return p(state) or make_result(state, "", None)
     return parser
 
 def expect(p):
@@ -278,16 +278,16 @@ def epsilon_p(state):
 @cacheable
 def semantic(f):
     def parser(state):
-        return make_result(state, "", None) if f() else False
+        return make_result(state, "", None) if f() else None
     return parser
 
 @cacheable
 def and_(p):
     def parser(state):
-        return make_result(state, u"", None) if p(state) else False
+        return make_result(state, u"", None) if p(state) else None
     return parser
 
 @cacheable
 def not_(p):
     def parser(state):
-        return False if p(state) else make_result(state, u"", None)
+        return None if p(state) else make_result(state, u"", None)
