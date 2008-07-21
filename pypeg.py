@@ -26,19 +26,19 @@ import itertools as it
 from collections import defaultdict
 
 class ParseState(object):
+    __slots__ = ['input', 'index', 'cache']
     parser_id = 0
 
     def __init__(self, input, index=None, cache=None):
         self.input = input
         self.index = index or 0
-        self.length = len(input) - self.index
         self.cache = cache if cache else defaultdict(lambda: defaultdict(lambda: None))
 
     def fromP(self, index):
         return ParseState(self.input, self.index + index, self.cache)
 
     def substring(self, start, end):
-        return self.input[start + self.index:(end or self.length) + self.index]
+        return self.input[start + self.index:end + self.index]
 
     def at(self, index):
         return self.input[self.index + index]
@@ -52,6 +52,9 @@ class ParseState(object):
     def putCached(self, pid, val):
         self.cache[pid][self.index] = val
         return val
+
+    def __len__(self):
+        return len(self.input) - self.index
 
     @classmethod
     def getPid(cls):
@@ -79,7 +82,7 @@ def cacheable(f):
 @cacheable
 def token(s):
     def parser(state):
-        if state.length >= len(s) and state.substring(0, len(s)) == s:
+        if len(state) >= len(s) and state.substring(0, len(s)) == s:
             return make_result(state.fromP(len(s)), s, s)
         else:
             return None
@@ -88,7 +91,7 @@ def token(s):
 @cacheable
 def ch(c):
     def parser(state):
-        if state.length >= 1 and state.at(0) == c:
+        if len(state) >= 1 and state.at(0) == c:
             return make_result(state.fromP(1), c, c)
         else:
             return None
@@ -97,7 +100,7 @@ def ch(c):
 @cacheable
 def range(lower, upper):
     def parser(state):
-        if state.length < 1:
+        if len(state) < 1:
             return None
         else:
             ch = state.at(0)
