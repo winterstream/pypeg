@@ -69,6 +69,11 @@ class Result(object):
         self.matched = matched
         self.ast = ast
 
+    def __repr__(self):
+        return repr({'remaining': self.remaining,
+                     'matched':   self.matched,
+                     'ast':       self.ast})
+
 def cacheable(f):
     def memoized_f(*args):
         pid = ParseState.getPid()
