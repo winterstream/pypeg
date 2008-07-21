@@ -154,7 +154,7 @@ def left_factor_action(p):
 def negate(p):
     def parser(state):
         if len(state) > 1:
-            if p(state):
+            if not p(state):
                 return Result(state.fromP(1), state.at(0), state.at(0))
             else:
                 return None
@@ -219,7 +219,7 @@ def butnot(p1, p2):
         if not br:
             return ar
         else:
-            if len(ar.matched) > len(br.matched):
+            if ar and (len(ar.matched) > len(br.matched)):
                 return ar
             else:
                 return None
@@ -309,7 +309,7 @@ def list_(p, s):
 
 @convert_str_to_parser
 def wlist(*parsers):
-    return _list(*(whitespace(p) for p in parsers))
+    return list_(*(whitespace(p) for p in parsers))
 
 def epsilon_p(state):
     return Result(state, u"", None)
@@ -317,7 +317,7 @@ def epsilon_p(state):
 @cacheable
 def semantic(f):
     def parser(state):
-        return Result(state, "", None) if f() else None
+        return Result(state, "", None) if f(state.ast) else None
     return parser
 
 @cacheable
@@ -332,3 +332,25 @@ def and_(p):
 def not_(p):
     def parser(state):
         return None if p(state) else Result(state, u"", None)
+    return parser
+
+def flatmap(f, seq):
+    work_stack = [iter(seq)]
+    result = []
+
+    while len(work_stack) > 0:
+        try:
+            item = work_stack[-1].next()
+            if isinstance(item, (list, tuple)):
+                work_stack.append(iter(item))
+            else:
+                result.append(f(item))
+        except StopIteration:
+            work_stack.pop()
+    return result
+
+def flatten(p):
+    return action(p, lambda ast: flatmap(lambda x: x, ast))
+
+def flat_join(p):
+    return join_action(flatten(p), "")
