@@ -189,6 +189,52 @@ def sequence(*parsers):
         return Result(state, u"".join(matched), ast)
     return parser
 
+@cacheable
+@convert_str_to_parser
+def choice(*parsers):
+    def parser(state):
+        for result in (p(state) for p in parsers):
+            if result:
+                return result
+        return None
+    return parser
+
+def repeat_loop(p, state, result):
+    ast = []
+    matched = []
+
+    while result:
+        if result.ast != None:
+            ast.append(result.ast)
+            matched.append(result.matched)
+        if result.remaining.index == state.index:
+            break
+        state  = result.remaining
+        result = p(state)
+    return Result(state, u"".join(matched), ast)
+
+@cacheable
+@convert_str_to_parser
+def repeat0(p):
+    def parser(state):
+        return repeat_loop(p, state, p(state))
+    return parser
+
+@cacheable
+@convert_str_to_parser
+def repeat1(p):
+    def parser(state):
+        result = p(state)
+        if not result:
+            return None
+        else:
+            return repeat_loop(p, state, result)
+    return parser
+
+@convert_str_to_parser
+def expect(p):
+    return action(p, lambda ast: None)
+
 WHITESPACE_P = repeat0(choice(*(expect(ch(c)) for c in "\t\n\r ")))
 @convert_str_to_parser
 def whitespace(p):
@@ -200,16 +246,6 @@ def whitespace(p):
 @convert_str_to_parser
 def wsequence(*parsers):
     return sequence(whitespace(p) for p in parsers)
-
-@cacheable
-@convert_str_to_parser
-def choice(*parsers):
-    def parser(state):
-        for result in (p(state) for p in parsers):
-            if result:
-                return result
-        return None
-    return parser
 
 @cacheable
 @convert_str_to_parser
@@ -250,48 +286,12 @@ def xor(p1, p2):
             return ar or br
     return xor
 
-def repeat_loop(p, state, result):
-    ast = []
-    matched = []
-
-    while result:
-        if result.ast != None:
-            ast.append(result.ast)
-            matched.append(result.matched)
-        if result.remaining.index == state.index:
-            break
-        state  = result.remaining
-        result = p(state)
-    return Result(state, u"".join(matched), ast)
-
-@cacheable
-@convert_str_to_parser
-def repeat0(p):
-    def parser(state):
-        return repeat_loop(p, state, p(state))
-    return parser
-
-@cacheable
-@convert_str_to_parser
-def repeat1(p):
-    def parser(state):
-        result = p(state)
-        if not result:
-            return None
-        else:
-            return repeat_loop(p, state, result)
-    return parser
-
 @cacheable
 @convert_str_to_parser
 def optional(p):
     def parser(state):
         return p(state) or Result(state, "", None)
     return parser
-
-@convert_str_to_parser
-def expect(p):
-    return action(p, lambda ast: None)
 
 @convert_str_to_parser
 def chain(p, s, f):
@@ -306,6 +306,15 @@ def chainl(p, s):
 @convert_str_to_parser
 def list_(p, s):
     return chain(p, s, lambda ast: ast[1])
+
+def if_error(p, f):
+    def parser(state):
+        result = p(state)
+        if not result:
+            f()
+        return result
+    return parser
+            
 
 @convert_str_to_parser
 def wlist(*parsers):
